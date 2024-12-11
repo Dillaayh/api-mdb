@@ -67,7 +67,6 @@ ALTER TABLE Pakan
 ADD LastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,  --  untuk mencatat waktu pembaruan terakhir.
 ADD LastUpdatedBy INT;  -- untuk mencatat siapa yang terakhir kali memperbarui.
 
-
 -- Membuat stored procedure untuk registrasi
 CREATE PROCEDURE register(
     IN _name VARCHAR(100),
@@ -103,12 +102,16 @@ BEGIN
         SET MESSAGE_TEXT = 'Panjang password minimal 8 karakter';
     END IF;
 
+    -- Hash password
+    SET @hashed_password = SHA2(_password, 256);
+
     -- Menyisipkan data ke dalam tabel Akun
     INSERT INTO Akun (Nama, username, Password, is_dokter)
-    VALUES (_name, _username, SHA2(_password, 100), _is_dokter);
+    VALUES (_name, _username, @hashed_password, _is_dokter);
 
     COMMIT;
 END;
+
 
 -- Membuat stored procedure untuk login
 CREATE PROCEDURE login(
@@ -165,22 +168,26 @@ begin
 
     commit;
 end;
-
+drop procedure insertakun;
 -- Stored Procedure untuk menambahkan data baru ke tabel Akun.-------------------------------------------------------------------------------------
+DELIMITER $$
+
 CREATE PROCEDURE InsertAkun (
     IN p_Nama VARCHAR(100),
-    IN p_usename VARCHAR(255),
+    IN p_username VARCHAR(255),
     IN p_Password VARCHAR(100),
-    IN p_is_dokter boolean
+    IN p_is_dokter BOOLEAN
 )
 BEGIN
     -- Penanganan kesalahan
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         -- Rollback jika terjadi kesalahan
- ;       ROLLBACK;
+        ROLLBACK;
+        -- Mengirimkan error kembali
+        RESIGNAL;
     END;
- 
+
     -- Memulai transaksi
     START TRANSACTION;
 
@@ -190,8 +197,14 @@ BEGIN
 
     -- Commit transaksi jika berhasil
     COMMIT;
-END;
+END$$
 
+DELIMITER ;
+
+CALL InsertAkun('John Doe', 'johndoe', 'hashedpassword123', TRUE);
+
+
+SHOW PROCEDURE STATUS WHERE Db = 'manajemen_peternakan';
 
 -- Stored Procedure untuk memperbarui data akun berdasarkan idUser.
 CREATE PROCEDURE UpdateAkun (
@@ -278,13 +291,26 @@ end;
 
 -- Stored Procedure untuk mencari Akun berdasarkan Nama.
 CREATE PROCEDURE SearchAkunByName (
-    IN p_Nama VARCHAR(100)
+    IN p_Nama VARCHAR(255)
 )
 BEGIN
-    SELECT idUser, Nama, username, is_dokter
-    FROM Akun
-    WHERE Nama LIKE CONCAT('%', p_Nama, '%');
-END;
+    SELECT 
+        idUser, 
+        Nama, 
+        username, 
+        Password, 
+        is_dokter 
+    FROM 
+        Akun
+    WHERE 
+        Nama LIKE CONCAT('%', p_Nama, '%');
+end;
+
+
+CALL searchakunbyname('Dilla');
+
+
+SELECT * FROM Akun WHERE nama LIKE '%Dilla Ayu%';
 
 
 -- Stored Procedure untuk menambahkan data baru ke tabel Hewan.--------------------------------------------------------------------------------
@@ -482,11 +508,21 @@ CREATE PROCEDURE SearchKesehatanByName (
     IN p_Hasil_pemeriksaan TEXT
 )
 BEGIN
-    SELECT idKesehatan, idHewan, idUser, Tanggal_pemeriksaan, Hasil_pemeriksaan, pengobatan
-    FROM Kesehatan
-    WHERE Hasil_pemeriksaan LIKE CONCAT('%', p_Hasil_pemeriksaan, '%');
+    SELECT 
+        idKesehatan, 
+        idHewan, 
+        idUser, 
+        Tanggal_pemeriksaan, 
+        Hasil_pemeriksaan, 
+        pengobatan
+    FROM 
+        Kesehatan
+    WHERE 
+        Hasil_pemeriksaan LIKE CONCAT('%', p_Hasil_pemeriksaan, '%');
 END;
 
+
+CALL SearchKesehatanByName('sakit');
 
 -- Stored Procedure untuk menambahkan data produksi hewan.----------------------------------------------------------------------------------------------
 CREATE PROCEDURE InsertProduksi (
@@ -858,11 +894,13 @@ END;
 SELECT GetTotalStokPakan() AS TotalStokPakan;
 
 -- prosedur memanggil function untuk mengambil data total stok pakan
-CREATE PROCEDURE ambil_total_stok_pakan(OUT totalStok INT)
+CREATE PROCEDURE ambil_total_stok_pakan()
 BEGIN
-   -- Memanggil fungsi dan menyimpan hasilnya ke parameter keluaran
-   SET totalStok = GetTotalStokPakan();
-END;
+   -- Mengembalikan total stok pakan
+   SELECT COALESCE(SUM(Stok), 0) AS totalStok
+   FROM Pakan;
+end;
+
 
 CALL ambil_total_stok_pakan(@hasil);
 SELECT @hasil AS TotalStokPakan;
@@ -912,7 +950,7 @@ JOIN
     Hewan h ON p.idHewan = h.idHewan
 JOIN 
     Akun a ON p.idUser = a.idUser;
-SELECT GetTotalProduksiByJenis('Daging') AS TotalProduksiDaging;
+SELECT GetTotalProduksiByJenis('susu') AS TotalProduksisusu;
 
 -- prosedure untuk menampilkan data produksi hewan
 CREATE PROCEDURE ambil_data_produksi_hewan()
@@ -960,6 +998,9 @@ BEGIN
     FROM view_Kesehatan_dokter;
 END;
 
+SELECT * FROM view_Kesehatan_dokter LIMIT 10;
+
+
 -- triger ----------------------------------------------- triger----------------------------------------------------------------------------------
 -- Trigger setelah data dimasukkan ke tabel Pakan
 CREATE TRIGGER UpdateStokPakan_AfterInsert
@@ -975,7 +1016,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Stok pakan tidak mencukupi!';
     END IF;
 END;
-
+drop TRIGGER UpdateStokPakan_AfterInsert;
 
 -- Trigger Memperbarui Status Kesehatan Hewan Setelah Produksi
 CREATE TRIGGER UpdateStatusHewan_AfterInsertProduksi
