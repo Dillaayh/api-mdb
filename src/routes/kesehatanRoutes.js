@@ -1,5 +1,5 @@
 import express from 'express';
-import { createKesehatan, getKesehatanById, deleteKesehatan, getRiwayatKesehatan } from '../controllers/kesehatanController.js';
+import { createKesehatan, getKesehatanById, deleteKesehatan, getRiwayatKesehatan,  searchKesehatanByName } from '../controllers/kesehatanController.js';
 
 const router = express.Router();
 
@@ -14,5 +14,8 @@ router.delete('/:idKesehatan', deleteKesehatan);
 
 // Route untuk melihat riwayat kesehatan berdasarkan ID Hewan
 router.get('/riwayat/:idHewan', getRiwayatKesehatan);
+
+// Route untuk mencari kesehatan berdasarkan hasil pemeriksaan
+router.get('/search', searchKesehatanByName);
 
 export default router;
