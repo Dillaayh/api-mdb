@@ -46,3 +46,27 @@ export const getRiwayatKesehatan = (req, res) => {
     res.status(200).json(results[0]);
   });
 };
+
+export const searchKesehatanByName = (req, res) => {
+  const { hasil_pemeriksaan } = req.query;
+
+  if (!hasil_pemeriksaan) {
+    return res.status(400).json({ message: 'Parameter hasil_pemeriksaan harus diberikan' });
+  }
+
+  db.query('CALL SearchKesehatanByName(?)', [hasil_pemeriksaan], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (!results[0].length) {
+      return res.status(404).json({ message: 'Hasil pemeriksaan tidak ditemukan' });
+    }
+
+    res.status(200).json(results[0]);
+  });
+};
+
+
+
