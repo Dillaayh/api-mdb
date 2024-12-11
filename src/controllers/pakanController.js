@@ -49,3 +49,39 @@ export const deletePakan = (req, res) => {
     res.status(200).json({ message: 'Data pakan berhasil dihapus' });
   });
 };
+
+export const searchPakanByName = (req, res) => {
+  const { jenis_pakan } = req.query;
+
+  if (!jenis_pakan) {
+    return res.status(400).json({ message: 'Parameter jenis_pakan harus diberikan' });
+  }
+
+  db.query('CALL SearchPakanByName(?)', [jenis_pakan], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(results[0]);
+  });
+};
+
+// Controller to call stored procedure `ambil_total_stok_pakan`
+export const getTotalStokPakan = (req, res) => {
+  // Define the OUT parameter to store the result
+  let totalStok = 0;
+
+  // Call the stored procedure
+  db.query('CALL ambil_total_stok_pakan(?)', [totalStok], (err, results) => {
+      if (err) {
+          console.error('Error calling stored procedure:', err);
+          return res.status(500).json({ message: 'Internal Server Error' });
+      }
+
+      // Extract the total stok value from the result
+      const result = results[0][0]; // Assuming the result is in the first index
+      totalStok = result.totalStok;
+
+      return res.status(200).json({
+          message: 'Berhasil mengambil total stok pakan',
+          totalStok: totalStok
+      });
+  });
+};
