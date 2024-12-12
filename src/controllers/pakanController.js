@@ -63,25 +63,59 @@ export const searchPakanByName = (req, res) => {
   });
 };
 
-// Controller to call stored procedure `ambil_total_stok_pakan`
-export const getTotalStokPakan = (req, res) => {
-  // Define the OUT parameter to store the result
-  let totalStok = 0;
+// Controller untuk menghitung total stok pakan
+export const hitungTotalStokPakan = (req, res) => {
+  // Menjalankan prosedur HitungTotalStokPakan
+  db.query('CALL HitungTotalStokPakan(@totalStok);', (err) => {
+    if (err) {
+      console.error('Error saat menjalankan prosedur:', err);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan saat menjalankan prosedur HitungTotalStokPakan',
+      });
+    }
 
-  // Call the stored procedure
-  db.query('CALL ambil_total_stok_pakan(?)', [totalStok], (err, results) => {
+    // Mengambil hasil dari variabel output @totalStok
+    db.query('SELECT @totalStok AS totalStok', (err, result) => {
       if (err) {
-          console.error('Error calling stored procedure:', err);
-          return res.status(500).json({ message: 'Internal Server Error' });
+        console.error('Error saat mengambil hasil total stok:', err);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Terjadi kesalahan saat mengambil hasil total stok',
+        });
       }
 
-      // Extract the total stok value from the result
-      const result = results[0][0]; // Assuming the result is in the first index
-      totalStok = result.totalStok;
+      // Mengecek apakah hasilnya valid
+      if (result.length === 0 || result[0].totalStok === null) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Total stok pakan tidak ditemukan',
+        });
+      }
 
-      return res.status(200).json({
-          message: 'Berhasil mengambil total stok pakan',
-          totalStok: totalStok
+      // Mengirimkan hasil total stok pakan ke client
+      res.json({
+        status: 'success',
+        totalStok: result[0].totalStok,
       });
+    });
+  });
+};
+
+// Fungsi untuk mengambil data stok pakan berdasarkan idUser
+export const getPakanStok = (req, res) => {
+  const { p_idPakan } = req.params;  // Mendapatkan parameter dari URL
+
+  // Memanggil stored procedure ambil_data_pakan_stok
+  db.query('CALL ambil_data_pakan_stok(?)', [p_idPakan], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error executing query', error: err });
+    }
+
+    // Mengembalikan hasil query ke client
+    res.status(200).json({
+      message: 'Data stok pakan berhasil diambil',
+      data: results[0],  // Hasil query pertama
+    });
   });
 };
