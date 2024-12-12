@@ -5,6 +5,7 @@ import {
   getAkunByIdAndName,
   getAllAkun,
   deleteAkun,
+  searchAkunByName
 } from '../controllers/akunController.js';
 
 const router = express.Router();
@@ -16,12 +17,15 @@ router.post('/', createAkun);
 router.put('/:idUser', updateAkun);
 
 // Route untuk mendapatkan akun berdasarkan ID atau Nama
-router.get('/:idUser?', getAkunByIdAndName);
+router.get('/search-id-nama?', getAkunByIdAndName);
 
 // Route untuk mendapatkan semua data akun
 router.get('/', getAllAkun);
 
 // Route untuk menghapus akun berdasarkan ID
 router.delete('/:idUser', deleteAkun);
+
+// Route untuk mencari akun berdasarkan nama
+router.get('/search-akun', searchAkunByName);
 
 export default router;
