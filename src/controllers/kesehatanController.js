@@ -68,5 +68,20 @@ export const searchKesehatanByName = (req, res) => {
   });
 };
 
+// Fungsi untuk memanggil stored procedure dan mengambil data
+export const ambilDataKesehatanDokter = (req, res) => {
+  const { idKesehatan } = req.params; // Mengambil idKesehatan dari parameter URL
 
+  // Memanggil stored procedure dengan parameter idKesehatan
+  db.query('CALL ambil_data_kesehatan_dokter(?)', [idKesehatan], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error executing query', error: err });
+    }
 
+    // Mengembalikan hasil query ke client
+    res.status(200).json({
+      message: 'Data retrieved successfully',
+      data: results[0] // Mengambil hasil dari View_Kesehatan_Dokter
+    });
+  });
+};
