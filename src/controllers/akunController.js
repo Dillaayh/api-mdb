@@ -14,7 +14,7 @@ export const createAkun = (req, res) => {
   db.query('CALL InsertAkun(?, ?, ?, ?)', [Nama, username, hashedPassword, is_dokter], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ message: 'Akun berhasil ditambahkan' });
-  });
+  });  
 };
 
 // Memperbarui data akun berdasarkan ID
@@ -61,5 +61,23 @@ export const deleteAkun = (req, res) => {
   db.query('CALL DeleteAkun(?)', [idUser], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(200).json({ message: 'Akun berhasil dihapus' });
+  });
+};
+
+// Fungsi untuk mencari akun berdasarkan nama
+export const searchAkunByName = (req, res) => {
+  const { nama } = req.query;
+
+  if (!nama) {
+      return res.status(400).json({ message: 'Parameter nama harus diberikan' });
+  }
+
+  // Panggil stored procedure
+  db.query('CALL SearchAkunByName(?)', [nama], (err, results) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+
+      res.status(200).json(results[0]);
   });
 };
