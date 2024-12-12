@@ -1,5 +1,5 @@
 import express from 'express';
-import { createProduksi, getProduksiById, updateProduksi, deleteProduksi } from '../controllers/produksiController.js';
+import { createProduksi, getProduksiById, updateProduksi, deleteProduksi, searchProduksiByName, hitungTotalProduksi, getJenisProduksiByHewan, ambilDataProduksiHewan } from '../controllers/produksiController.js';
 
 const router = express.Router();
 
@@ -14,5 +14,17 @@ router.put('/:idProduksi', updateProduksi);
 
 // Route untuk menghapus data produksi berdasarkan ID
 router.delete('/:idProduksi', deleteProduksi);
+
+// Route untuk mencari produksi berdasarkan jenis produksi
+router.get('/search-produksi', searchProduksiByName);
+
+// Endpoint untuk menghitung total produksi berdasarkan jenis produksi
+router.post('/total-produksi', hitungTotalProduksi);
+
+// Endpoint untuk mendapatkan jenis produksi berdasarkan ID Hewan
+router.post('/jenis-produksi', getJenisProduksiByHewan);
+
+// Route untuk mendapatkan data produksi hewan
+router.get('/produksi-hewan', ambilDataProduksiHewan);
 
 export default router;
