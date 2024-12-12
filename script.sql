@@ -735,52 +735,50 @@ BEGIN
   -- Commit transaksi jika berhasil
     COMMIT;
 END;
-
+drop PROCEDURE SearchPakanByName;
 -- Stored Procedure untuk Pencarian di namaPakan
-CREATE PROCEDURE SearchPakanByName (
-    IN p_Jenis_pakan VARCHAR(100)
-)
+CREATE PROCEDURE ambil_jenis_pakan()
 BEGIN
-    SELECT idPakan, idUser, Jenis_pakan, Jumlah, Stok
-    FROM Pakan
-    WHERE Jenis_pakan LIKE CONCAT('%', p_Jenis_pakan, '%');
+   -- Mengambil daftar jenis pakan
+   SELECT idPakan, Jenis_pakan, Stok
+   FROM Pakan;
 END;
 
 
 -- function ----------------------------- function -------------------------------------------------------------------------------
 
 -- Function untuk mendapatkan nama user dari idUser
-CREATE FUNCTION GetNamaUserById (
-   p_idUser INT
-)
-RETURNS VARCHAR(100)
-DETERMINISTIC
-BEGIN
-   DECLARE namaUser VARCHAR(100);
-
-   -- Mengambil nama user berdasarkan idUser
-   SELECT COALESCE(Nama, 'Tidak ditemukan') INTO namaUser
-   FROM Akun
-   WHERE idUser = p_idUser;
-
-   RETURN namaUser;
-END;
-SELECT GetNamaUserById(1) AS NamaUser;
--- jika idUser tidak ada menghasilkan output NULL
-SELECT GetNamaUserById(99) AS NamaUser;
-
--- prosedure panggil nama user by id function
-CREATE PROCEDURE ambil_nama_user(
-   IN p_idUser INT,
-   OUT namaUser VARCHAR(100)
-)
-BEGIN
-   -- Memanggil fungsi untuk mendapatkan nama user
-   SET namaUser = GetNamaUserById(p_idUser);
-END;
-
-CALL ambil_nama_user(1, @NamaUser);
-SELECT @NamaUser AS NamaUser;
+-- CREATE FUNCTION GetNamaUserById (
+--    p_idUser INT
+-- )
+-- RETURNS VARCHAR(100)
+-- DETERMINISTIC
+-- BEGIN
+--    DECLARE namaUser VARCHAR(100);
+-- 
+--    -- Mengambil nama user berdasarkan idUser
+--    SELECT COALESCE(Nama, 'Tidak ditemukan') INTO namaUser
+--    FROM Akun
+--    WHERE idUser = p_idUser;
+-- 
+--    RETURN namaUser;
+-- END;
+-- SELECT GetNamaUserById(1) AS NamaUser;
+-- -- jika idUser tidak ada menghasilkan output NULL
+-- SELECT GetNamaUserById(99) AS NamaUser;
+-- 
+-- -- prosedure panggil nama user by id function
+-- CREATE PROCEDURE ambil_nama_user(
+--    IN p_idUser INT,
+--    OUT namaUser VARCHAR(100)
+-- )
+-- BEGIN
+--    -- Memanggil fungsi untuk mendapatkan nama user
+--    SET namaUser = GetNamaUserById(p_idUser);
+-- END;
+-- 
+-- CALL ambil_nama_user(1, @NamaUser);
+-- SELECT @NamaUser AS NamaUser;
 
 
 -- Function untuk menghitung jumlah hewan berdasarkan status kesehatannya
@@ -802,17 +800,44 @@ END;
 SELECT GetJumlahHewanByStatusKesehatan('Sehat') AS JumlahHewanSehat;
 
 -- prosedur untuk memenggil Function untuk menghitung jumlah hewan berdasarkan status kesehatannya
-CREATE PROCEDURE hitung_jumlah_hewan(
+CREATE PROCEDURE get_jumlah_hewan_by_status_kesehatan(
    IN p_Status_kesehatan VARCHAR(100),
    OUT jumlahHewan INT
 )
 BEGIN
-   -- Memanggil fungsi untuk menghitung jumlah hewan
-   SET jumlahHewan = GetJumlahHewanByStatusKesehatan(p_Status_kesehatan);
+   -- Penanganan error
+   DECLARE exitHandler INT DEFAULT 0;
+   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+   BEGIN
+      -- Rollback jika terjadi error
+      SET exitHandler = 1;
+      ROLLBACK;
+   END;
+
+   -- Mulai transaksi
+   START TRANSACTION;
+
+   BEGIN
+      -- Query untuk menghitung jumlah hewan berdasarkan status kesehatan
+      SELECT COUNT(idHewan) INTO jumlahHewan
+      FROM Hewan
+      WHERE Status_kesehatan = p_Status_kesehatan
+      FOR UPDATE;
+
+      -- Komit transaksi jika berhasil
+      COMMIT;
+   END;
+
+   -- Rollback otomatis jika ada error
+   IF exitHandler THEN
+      ROLLBACK;
+   END IF;
 END;
 
-CALL hitung_jumlah_hewan('Sehat', @JumlahHewan);
-SELECT @JumlahHewan AS JumlahHewanSehat;
+CALL get_jumlah_hewan_by_status_kesehatan('sehat', @jumlahHewan);
+SELECT @jumlahHewan AS jumlahHewan;
+
+
 
 
 -- Function untuk mendapatkan jenis produksi berdasarkan idHewan
@@ -833,17 +858,46 @@ END;
 SELECT GetJenisProduksiByHewan(1) AS JenisProduksiHewan;
 
 -- prosedur untuk memanggi Function untuk mendapatkan jenis produksi berdasarkan idHewan
-CREATE PROCEDURE ambil_jenis_produksi(
+CREATE PROCEDURE get_jenis_produksi_by_hewan(
    IN p_idHewan INT,
    OUT jenisProduksi VARCHAR(100)
 )
 BEGIN
-   -- Memanggil fungsi untuk mendapatkan jenis produksi
-   SET jenisProduksi = GetJenisProduksiByHewan(p_idHewan);
+   -- Penanganan error
+   DECLARE exitHandler INT DEFAULT 0;
+   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+   BEGIN
+      -- Rollback jika terjadi error
+      SET exitHandler = 1;
+      ROLLBACK;
+   END;
+
+   -- Mulai transaksi
+   START TRANSACTION;
+
+   BEGIN
+      -- Query untuk mendapatkan jenis produksi berdasarkan idHewan
+      SET jenisProduksi = (
+         SELECT COALESCE(Jenis_produksi, 'Tidak ada data')
+         FROM Produksi
+         WHERE idHewan = p_idHewan
+         LIMIT 1
+         FOR UPDATE
+      );
+
+      -- Komit transaksi jika berhasil
+      COMMIT;
+   END;
+
+   -- Rollback otomatis jika ada error
+   IF exitHandler THEN
+      ROLLBACK;
+   END IF;
 END;
 
-CALL ambil_jenis_produksi(1, @JenisProduksi);
-SELECT @JenisProduksi AS JenisProduksiHewan;
+
+CALL get_jenis_produksi_by_hewan(1, @jenisProduksi);
+SELECT @jenisProduksi AS JenisProduksi;
 
 -- Function untuk menghitung total produksi dari jenis tertentu
 CREATE FUNCTION GetTotalProduksiByJenis (
@@ -870,12 +924,40 @@ CREATE PROCEDURE hitung_total_produksi(
    OUT totalProduksi INT
 )
 BEGIN
-   -- Memanggil fungsi untuk menghitung total produksi
-   SET totalProduksi = GetTotalProduksiByJenis(p_Jenis_produksi);
+   -- Mulai transaksi
+   DECLARE exitHandler INT DEFAULT 0;
+   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+   BEGIN
+      -- Rollback jika terjadi error
+      SET exitHandler = 1;
+      ROLLBACK;
+   END;
+
+   START TRANSACTION;
+
+   BEGIN
+      -- Memanggil fungsi untuk menghitung total produksi
+      SET totalProduksi = (
+         SELECT COALESCE(SUM(Jumlah), 0)
+         FROM Produksi
+         WHERE Jenis_produksi = p_Jenis_produksi
+         FOR UPDATE
+      );
+
+      -- Komit transaksi jika tidak ada error
+      COMMIT;
+   END;
+
+   -- Rollback otomatis jika ada error
+   IF exitHandler THEN
+      ROLLBACK;
+   END IF;
 END;
+
 
 CALL hitung_total_produksi('Susu', @TotalProduksi);
 SELECT @TotalProduksi AS TotalProduksiSusu;
+
 
 
 -- Function untuk menghitung stok total pakan yang tersisa
@@ -894,20 +976,35 @@ END;
 SELECT GetTotalStokPakan() AS TotalStokPakan;
 
 -- prosedur memanggil function untuk mengambil data total stok pakan
-CREATE PROCEDURE ambil_total_stok_pakan()
+-- Prosedur untuk menghitung total stok pakan menggunakan transaksi
+CREATE PROCEDURE HitungTotalStokPakan(
+   OUT totalStok INT
+)
 BEGIN
-   -- Mengembalikan total stok pakan
-   SELECT COALESCE(SUM(Stok), 0) AS totalStok
+   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+   BEGIN
+      -- Rollback jika ada error
+      ROLLBACK;
+      SET totalStok = NULL;
+   END;
+
+   -- Mulai transaksi
+   START TRANSACTION;
+
+   -- Hitung total stok pakan
+   SELECT COALESCE(SUM(Stok), 0) INTO totalStok
    FROM Pakan;
-end;
 
+   -- Commit transaksi jika berhasil
+   COMMIT;
+END;
+CALL HitungTotalStokPakan(@stokPakan);
+SELECT @stokPakan AS TotalStokPakan;
 
-CALL ambil_total_stok_pakan(@hasil);
-SELECT @hasil AS TotalStokPakan;
 
 ------------------- view ------------------------------------------------ view ---------------------------------------------------------------
 -- View untuk menampilkan data pakan dan pengguna
-CREATE view Pakan_Stok AS
+CREATE VIEW Pakan_Stok AS
 SELECT 
     p.idPakan,
     p.Jenis_pakan,
@@ -919,90 +1016,87 @@ FROM
 JOIN 
     Akun a ON p.idUser = a.idUser;
 
+   
+
 SELECT * FROM Pakan_Stok;
 
 -- prosedure untuk menampilkan data pakan dan pengguna
-CREATE PROCEDURE ambil_data_pakan_stok()
+CREATE PROCEDURE ambil_data_pakan_stok(p_idPakan  INT)
 BEGIN
-    SELECT 
-        idPakan,
-        Jenis_pakan,
-        Jumlah,
-        Stok,
-        Pengguna
-    FROM 
-        Pakan_Stok;
+    -- kode lainnya
+    SELECT * FROM Pakan_Stok WHERE idPakan = p_idPakan;
 END;
 
+
+call ambil_data_pakan_stok_user;
+
+select * from Pakan_Stok;
 
 -- View untuk menampilkan data produksi hewan
-CREATE VIEW Produksi_Hewan AS
-SELECT 
-    p.idProduksi,
-    h.Spesies AS Hewan,
-    p.Jenis_produksi,
-    p.Jumlah,
-    p.Stok,
-    a.Nama AS Pekerja
-FROM 
-    Produksi p
-JOIN 
-    Hewan h ON p.idHewan = h.idHewan
-JOIN 
-    Akun a ON p.idUser = a.idUser;
-SELECT GetTotalProduksiByJenis('susu') AS TotalProduksisusu;
-
--- prosedure untuk menampilkan data produksi hewan
-CREATE PROCEDURE ambil_data_produksi_hewan()
-BEGIN
-    SELECT 
-        idProduksi,
-        Hewan,
-        Jenis_produksi,
-        Jumlah,
-        Stok,
-        Pekerja
-    FROM 
-        Produksi_Hewan;
-END;
-
+-- CREATE VIEW Produksi_Hewan AS
+-- SELECT 
+--     p.idProduksi,
+--     h.Spesies AS Hewan,
+--     p.Jenis_produksi,
+--     p.Jumlah,
+--     p.Stok,
+--     a.Nama AS Pekerja
+-- FROM 
+--     Produksi p
+-- JOIN 
+--     Hewan h ON p.idHewan = h.idHewan
+-- JOIN 
+--     Akun a ON p.idUser = a.idUser;
+-- 
+-- 
+-- -- prosedure untuk menampilkan data produksi hewan
+-- CREATE PROCEDURE ambil_data_produksi_hewan(p_idProduksi INT)
+-- BEGIN
+--     -- Query yang mengambil data berdasarkan parameter
+--     SELECT * FROM Produksi_Hewan WHERE idProduksi = p_idProduksi;
+-- END;
+-- 
+-- 
+-- call ambil_data_produksi_hewan(6);
+-- 
+-- select * from Produksi_Hewan;
 
 -- View untuk menampilkan data kesehatan beserta nama dokter
-CREATE VIEW Kesehatan_Dokter AS
+CREATE VIEW View_Kesehatan_Dokter AS
 SELECT 
-    k.idKesehatan,
-    h.Spesies AS Hewan,
-    a.Nama AS Dokter,
-    k.Tanggal_pemeriksaan,
-    k.Hasil_pemeriksaan,
-    k.pengobatan
+    K.idKesehatan,
+    H.idHewan,
+    H.Spesies,
+    H.Umur,
+    H.Status_kesehatan,
+    K.Tanggal_pemeriksaan,
+    K.Hasil_pemeriksaan,
+    K.pengobatan,
+    A.Nama AS Nama_Dokter
 FROM 
-    Kesehatan k
-JOIN 
-    Hewan h ON k.idHewan = h.idHewan
-JOIN 
-    Akun a ON k.idUser = a.idUser
+    Kesehatan K
+INNER JOIN 
+    Hewan H ON K.idHewan = H.idHewan
+INNER JOIN 
+    Akun A ON K.idUser = A.idUser
 WHERE 
-    a.is_dokter = TRUE;
+    A.is_dokter = TRUE;
 
 -- prosedur untuk menampilkan data kesehatan dan nama dokter
-CREATE PROCEDURE ambil_data_kesehatan_dokter()
+CREATE PROCEDURE ambil_data_kesehatan_dokter(p_idKesehatan INT)
 BEGIN
-    SELECT 
-        idKesehatan, 
-        idHewan, 
-        idUser, 
-        Tanggal_pemeriksaan, 
-        Hasil_pemeriksaan, 
-        pengobatan
-    FROM view_Kesehatan_dokter;
+    -- kode lainnya
+    SELECT * FROM View_Kesehatan_Dokter WHERE idKesehatan = p_idKesehatan;
 END;
 
 SELECT * FROM view_Kesehatan_dokter LIMIT 10;
+call ambil_data_kesehatan_dokter;
 
+select * from Kesehatan_Dokter;
 
 -- triger ----------------------------------------------- triger----------------------------------------------------------------------------------
 -- Trigger setelah data dimasukkan ke tabel Pakan
+-- untuk memastikan bahwa stok pakan tidak akan berkurang jika tidak mencukupi, sehingga mencegah kesalahan dalam pengelolaan stok.
 CREATE TRIGGER UpdateStokPakan_AfterInsert
 AFTER INSERT ON Pakan
 FOR EACH ROW
@@ -1019,6 +1113,8 @@ END;
 drop TRIGGER UpdateStokPakan_AfterInsert;
 
 -- Trigger Memperbarui Status Kesehatan Hewan Setelah Produksi
+-- untuk secara otomatis memperbarui status kesehatan hewan ketika ada peningkatan dalam jumlah produksi,
+-- yang dapat menjadi indikator kesehatan hewan tersebut.
 CREATE TRIGGER UpdateStatusHewan_AfterInsertProduksi
 AFTER INSERT ON Produksi
 FOR EACH ROW
@@ -1032,17 +1128,18 @@ END;
 
 
 -- Trigger Validasi Dokter Sebelum Menambahkan Data Kesehatan
-CREATE TRIGGER ValidateDokter_BeforeInsertKesehatan
-BEFORE INSERT ON Kesehatan
-FOR EACH ROW
-BEGIN
-    IF (SELECT is_dokter FROM Akun WHERE idUser = NEW.idUser) = 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Hanya dokter yang dapat menambahkan catatan kesehatan.';
-    END IF;
-END;
+-- CREATE TRIGGER ValidateDokter_BeforeInsertKesehatan
+-- BEFORE INSERT ON Kesehatan
+-- FOR EACH ROW
+-- BEGIN
+--     IF (SELECT is_dokter FROM Akun WHERE idUser = NEW.idUser) = 0 THEN
+--         SIGNAL SQLSTATE '45000'
+--         SET MESSAGE_TEXT = 'Hanya dokter yang dapat menambahkan catatan kesehatan.';
+--     END IF;
+-- END;
 
 --  Trigger Memperbarui Informasi Riwayat di Tabel Kesehatan
+-- untuk melacak kapan data kesehatan terakhir diperbarui dan oleh siapa, yang penting untuk audit dan pengelolaan data.
 CREATE TRIGGER UpdateKesehatan_AfterUpdate
 AFTER UPDATE ON Kesehatan
 FOR EACH ROW
