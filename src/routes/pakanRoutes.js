@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPakan, getPakanById, updatePakan, deletePakan, searchPakanByName, getTotalStokPakan } from '../controllers/pakanController.js';
+import { createPakan, getPakanById, updatePakan, deletePakan, searchPakanByName, getPakanStok, hitungTotalStokPakan } from '../controllers/pakanController.js';
 
 const router = express.Router();
 
@@ -18,7 +18,10 @@ router.delete('/:idPakan', deletePakan);
 // Route untuk mencari pakan berdasarkan jenis pakan
 router.get('/search', searchPakanByName);
 
-// Define the endpoint
-router.get('/total-stok-pakan', getTotalStokPakan);
+// Route untuk mengambil data stok pakan berdasarkan ID pengguna
+router.get('/:p_idPakan', getPakanStok);
+
+// Menambahkan route untuk menghitung total stok pakan
+router.post('/hitung-total-stok-pakan', hitungTotalStokPakan);
 
 export default router;
